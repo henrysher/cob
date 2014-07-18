@@ -49,7 +49,7 @@ What's the difference between Cob and original [yum s3 plugin](https://github.co
   name=cob
   baseurl=https://your-bucket-name-1.s3.amazonaws.com/repo-name/arch/
           https://your-bucket-name-2.s3.amazonaws.com/repo-name/arch/
-          failovermethod=priority
-          enabled=1
-          gpgcheck=0
+  failovermethod=priority
+  enabled=1
+  gpgcheck=0
   ```
