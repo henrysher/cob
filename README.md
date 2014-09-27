@@ -34,12 +34,14 @@ What's the difference between Cob and original [yum s3 plugin](https://github.co
   [aws]
   # access_key = 
   # secret_key =
+  # region =
   timeout = 60
   retries = 5
   metadata_server = http://169.254.169.254
   ```
   * set **main/enabled=1** to enable this yum plugin
   * for static AWS credentials, you could specify via **aws/access_key**, **aws/secret_key**
+  * for cross-region usage, you could specifiy the region name of your yum via **aws/region**
   * **aws/timeout** and **aws/retries**, used to indicate params in the way of fetching IAM role credentials
   * **metadata_server** used to help testing
 

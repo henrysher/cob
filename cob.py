@@ -64,6 +64,13 @@ class NoCredentialsError(Exception):
     pass
 
 
+class NoRegionError(Exception):
+    """
+    No region could be found
+    """
+    pass
+
+
 class IncorrectCredentialsError(Exception):
 
     """
@@ -400,6 +407,7 @@ class S3Repository(YumRepository):
         # Inherited from YumRepository <-- Repository
         self.enable()
         self.set_credentials()
+        self.set_region()
 
     def _getFile(self, url=None, relative=None, local=None,
                  start=None, end=None,
@@ -432,6 +440,34 @@ class S3Repository(YumRepository):
                 raise
 
     __get = _getFile
+
+    def set_region(self):
+
+        # Fetch params from local config file
+        global timeout, retries, metadata_server
+        timeout = self.conduit.confInt('aws', 'timeout', default=timeout)
+        retries = self.conduit.confInt('aws', 'retries', default=retries)
+        metadata_server = self.conduit.confString('aws',
+                                                  'metadata_server',
+                                                  default=metadata_server)
+
+        # Fetch region from local config file
+        self.region = self.conduit.confString('aws',
+                                              'region',
+                                              default=None)
+
+        if self.region:
+            return True
+
+        # Fetch region from meta data
+        region = get_region()
+        if region is None:
+            self.conduit.info(3, "[ERROR] No region in the plugin conf "
+                                 "for the repo '%s'" % self.repoid)
+            raise NoRegionError
+
+        self.region = region
+        return True
 
     def set_credentials(self):
 
@@ -477,7 +513,7 @@ class S3Repository(YumRepository):
         url = urlparse.urljoin(url, urllib2.quote(path)) + "\n"
         credentials = Credentials(self.access_key, self.secret_key, self.token)
         request = HTTPRequest("GET", url)
-        signer = S3SigV4Auth(credentials, "s3", get_region(), self.conduit)
+        signer = S3SigV4Auth(credentials, "s3", self.region, self.conduit)
         signer.add_auth(request)
         return request.headers
 
