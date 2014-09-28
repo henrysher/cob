@@ -11,7 +11,7 @@ What's the difference between Cob and original [yum s3 plugin](https://github.co
 
 ## Quick Start
 
-* Installation:
+* Installation: **make install**
   * plugin conf: **cob.conf** --> /etc/yum/pluginconf.d/cob.conf
   * plugin code: **cob.py**   --> /usr/lib/yum-plugins/cob.py
   * yum repo conf: **cob.repo** --> /etc/yum.repos.d/cob.repo
