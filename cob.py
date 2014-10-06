@@ -265,6 +265,16 @@ def _check_s3_urls(urls):
     return True
 
 
+def get_region_from_s3url(url):
+    pattern = "s3-(.*)\.amazonaws\.com"
+    groups = re.compile(pattern).findall(url)
+    if groups != [] and len(groups) == 1:
+        return groups[0]
+    else:
+        # No region info in S3 URL
+        return None
+
+
 def retry_url(url, retry_on_404=False, num_retries=retries, timeout=timeout):
     """
     Retry a url.  This is specifically used for accessing the metadata
@@ -423,6 +433,9 @@ class S3Repository(YumRepository):
             baseurl = mirror["mirror"]
             super(S3Repository, self).grab.mirrors = [mirror]
             if _check_s3_urls(baseurl):
+                region_name = get_region_from_s3url(baseurl)
+                if region_name:
+                    self.region = region_name
                 self.http_headers = self.fetch_headers(baseurl, relative)
             else:
                 # non-S3 URL

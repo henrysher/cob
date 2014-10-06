@@ -11,10 +11,42 @@ What's the difference between Cob and original [yum s3 plugin](https://github.co
 
 ## Quick Start
 
-* Installation: **./install.sh**
-  * plugin conf: **cob.conf** --> /etc/yum/pluginconf.d/cob.conf
-  * plugin code: **cob.py**   --> /usr/lib/yum-plugins/cob.py
-  * yum repo conf: **cob.repo** --> /etc/yum.repos.d/cob.repo
+* Installation
+
+  * **./install.sh**
+   * plugin conf: **cob.conf** --> /etc/yum/pluginconf.d/cob.conf
+   * plugin code: **cob.py**   --> /usr/lib/yum-plugins/cob.py
+
+* Setup minimal IAM Role Policy for Cob
+
+  ```json
+  {
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "s3:GetObject"
+        ],
+        "Resource": "*"
+      }
+    ]
+  }
+  ```
+* Configure your yum repo conf under **/etc/yum.repos.d/**, like the example below **cob.repo**
+
+  ```ini
+  [cob]
+  name=cob
+  baseurl=https://your-bucket-name-1.s3-eu-west-1.amazonaws.com/repo-name/arch/
+          https://your-bucket-name-2.s3-us-west-2.amazonaws.com/repo-name/arch/
+  failovermethod=priority
+  enabled=1
+  gpgcheck=0
+  ```
+  * it is **recommended** to take bucket region name in the baseurl as shown in the example
+  * if bucket region name specified in the baseurl, the **aws/region** param in **cob.conf** will be overriden,
+    thus cross-region s3 yum usage can be easily achieved.
+
 
 * An example from **cob.conf** is taken to indicate its usages:
 
@@ -41,17 +73,6 @@ What's the difference between Cob and original [yum s3 plugin](https://github.co
   ```
   * set **main/enabled=1** to enable this yum plugin
   * for static AWS credentials, you could specify via **aws/access_key**, **aws/secret_key**
-  * for cross-region usage, you could specifiy the region name of your yum via **aws/region**
+  * for static region usage, you could specifiy the region name of your yum via **aws/region**
   * **aws/timeout** and **aws/retries**, used to indicate params in the way of fetching IAM role credentials
   * **metadata_server** used to help testing
-
-* An example from **cob.repo**
-  ```ini
-  [cob]
-  name=cob
-  baseurl=https://your-bucket-name-1.s3.amazonaws.com/repo-name/arch/
-          https://your-bucket-name-2.s3.amazonaws.com/repo-name/arch/
-  failovermethod=priority
-  enabled=1
-  gpgcheck=0
-  ```
