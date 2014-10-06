@@ -45,7 +45,7 @@ What's the difference between Cob and original [yum s3 plugin](https://github.co
   ```
   * it is **recommended** to take bucket region name in the baseurl as shown in the example
   * if bucket region name specified in the baseurl, the **aws/region** param in **cob.conf** will be overriden,
-    thus cross-region s3 yum usage can be easily achieved.
+    thus cross-region s3 yum usage can be easily achieved
 
 
 * An example from **cob.conf** is taken to indicate its usages:

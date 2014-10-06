@@ -17,8 +17,8 @@
 ;
 [cob]
 name=cob
-baseurl=https://your-bucket-name-1.s3.amazonaws.com/repo-name/arch/
-        https://your-bucket-name-2.s3.amazonaws.com/repo-name/arch/
+baseurl=https://your-bucket-name-1.s3-eu-west-1.amazonaws.com/repo-name/arch/
+        https://your-bucket-name-2.s3-us-west-2.amazonaws.com/repo-name/arch/
 failovermethod=priority
 enabled=1
 gpgcheck=0
