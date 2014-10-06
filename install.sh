@@ -1,3 +1,4 @@
+#!/bin/sh
 # Cob: yet another yum S3 plugin
 #
 # Copyright 2014, Henry Huang
@@ -14,9 +15,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-install:
-	install -m 0644 cob.conf /etc/yum/pluginconf.d/cob.conf
-	install -m 0644 cob.py   /usr/lib/yum-plugins/cob.py
-    
-.PHONY: install
+echo "**************** Cob Installing ****************"
+echo 
+install -v -m 0644 cob.conf /etc/yum/pluginconf.d/cob.conf
+install -v -m 0644 cob.py   /usr/lib/yum-plugins/cob.py
+echo 
+echo "****************      END       ****************"
