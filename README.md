@@ -4,7 +4,8 @@ Cob, yet another yum S3 plugin, provides the way to accessing yum repository hos
 
 What's the difference between Cob and original [yum s3 plugin](https://github.com/henrysher/yum-s3-iam)?
 
-* Support more secure **AWS Signature Version 4** while original one still in __version 2__
+* Support more secure **AWS Signature Version 4** while original one still in __version 2__,
+  especially for the new region **eu-central-1** only Sigv4 allowd
 * Hook on higher layer of Yum built-in library to avoid complicated low-level handlings
 * Support static AWS credentials prior to IAM role
 * Add retry mechansim to fetch IAM role credentials
@@ -37,15 +38,16 @@ What's the difference between Cob and original [yum s3 plugin](https://github.co
   ```ini
   [cob]
   name=cob
-  baseurl=https://your-bucket-name-1.s3-eu-west-1.amazonaws.com/repo-name/arch/
+  baseurl=https://your-bucket-name-0.s3.amazonaws.com/repo-name/arch/
+          https://your-bucket-name-1.s3-eu-west-1.amazonaws.com/repo-name/arch/
           https://your-bucket-name-2.s3-us-west-2.amazonaws.com/repo-name/arch/
   failovermethod=priority
   enabled=1
   gpgcheck=0
   ```
-  * it is **recommended** to take bucket region name in the baseurl as shown in the example
-  * if bucket region name specified in the baseurl, the **aws/region** param in **cob.conf** will be overriden,
-    thus cross-region s3 yum usage can be easily achieved
+  * add the bucket region name in the baseurl as shown in the example,
+    specially for **us-east-1**, like **your-bucket-name-0**, no region name needed there
+  * s3 endpoint reference: http://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region
 
 
 * An example from **cob.conf** is taken to indicate its usages:
@@ -66,13 +68,11 @@ What's the difference between Cob and original [yum s3 plugin](https://github.co
   [aws]
   # access_key = 
   # secret_key =
-  # region =
   timeout = 60
   retries = 5
   metadata_server = http://169.254.169.254
   ```
   * set **main/enabled=1** to enable this yum plugin
   * for static AWS credentials, you could specify via **aws/access_key**, **aws/secret_key**
-  * for static region usage, you could specifiy the region name of your yum via **aws/region**
   * **aws/timeout** and **aws/retries**, used to indicate params in the way of fetching IAM role credentials
   * **metadata_server** used to help testing

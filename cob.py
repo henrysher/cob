@@ -272,7 +272,7 @@ def get_region_from_s3url(url):
         return groups[0]
     else:
         # No region info in S3 URL
-        return None
+        return "us-east-1"
 
 
 def retry_url(url, retry_on_404=False, num_retries=retries, timeout=timeout):
@@ -416,8 +416,12 @@ class S3Repository(YumRepository):
 
         # Inherited from YumRepository <-- Repository
         self.enable()
+
+        # Find the AWS Credentials
         self.set_credentials()
-        self.set_region()
+
+        # Disabled region initialization
+        # self.set_region()
 
     def _getFile(self, url=None, relative=None, local=None,
                  start=None, end=None,
