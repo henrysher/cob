@@ -5,7 +5,7 @@ Cob, yet another yum S3 plugin, provides the way to accessing yum repository hos
 What's the difference between Cob and original [yum s3 plugin](https://github.com/henrysher/yum-s3-iam)?
 
 * Support more secure **AWS Signature Version 4** while original one still in __version 2__,
-  especially for the new region **eu-central-1** only Sigv4 allowd
+  especially for the new region **eu-central-1** only SigV4 allowed
 * Hook on higher layer of Yum built-in library to avoid complicated low-level handlings
 * Support static AWS credentials prior to IAM role
 * Add retry mechansim to fetch IAM role credentials
@@ -46,7 +46,7 @@ What's the difference between Cob and original [yum s3 plugin](https://github.co
   gpgcheck=0
   ```
   * add the bucket region name in the baseurl as shown in the example,
-    specially for **us-east-1**, like **your-bucket-name-0**, no region name needed there
+    especially for **us-east-1**, like **your-bucket-name-0**, no region name needed there
   * s3 endpoint reference: http://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region
 
 
