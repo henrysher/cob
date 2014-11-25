@@ -8,7 +8,7 @@ What's the difference between Cob and original [yum s3 plugin](https://github.co
   especially for the new region **eu-central-1** only SigV4 allowed
 * Hook on higher layer of Yum built-in library to avoid complicated low-level handlings
 * Support static AWS credentials prior to IAM role
-* Add retry mechansim to fetch IAM role credentials
+* Add retry mechanism to fetch IAM role credentials
 
 ## Quick Start
 
