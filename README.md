@@ -33,6 +33,29 @@ What's the difference between Cob and original [yum s3 plugin](https://github.co
     ]
   }
   ```
+  * For cross-account access, setup the policy of yum s3 bucket
+
+    ```json
+    {
+      "Version": "2008-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "AWS": [
+              "arn:aws:iam::37ABC0340XYZ:root",
+              "arn:aws:iam::24ABC3058XYZ:root"
+            ]
+          },
+          "Action": "s3:GetObject",
+          "Resource": "arn:aws:s3:::yum-s3-bucket-XYZ/*"
+        }
+      ]
+    }
+    ```
+    * "37ABC0340XYZ", "24ABC3058XYZ": AWS account id with the permission to access
+    * "yum-s3-bucket-XYZ": S3 bucket for yum access
+
 * Configure your yum repo conf under **/etc/yum.repos.d/**, like the example below **cob.repo**
 
   ```ini
@@ -76,3 +99,8 @@ What's the difference between Cob and original [yum s3 plugin](https://github.co
   * for static AWS credentials, you could specify via **aws/access_key**, **aws/secret_key**
   * **aws/timeout** and **aws/retries**, used to indicate params in the way of fetching IAM role credentials
   * **metadata_server** used to help testing
+
+* Enable verbose log to help troubleshoot the Cob issue:
+  ```shell
+  URLGRABBER_DEBUG=1 yum -v makecache
+  ```
