@@ -1,7 +1,7 @@
 ;
 ; sample yum S3 repository config /etc/yum.repos.d/cob.conf
 ;
-; Copyright 2014, Henry Huang
+; Copyright 2014-2015, Henry Huang <henry.s.huang@gmail.com>. All Rights Reserved.
 ;
 ; Licensed under the Apache License, Version 2.0 (the "License");
 ; you may not use this file except in compliance with the License.

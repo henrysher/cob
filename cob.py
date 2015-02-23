@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Cob: yet another yum S3 plugin
 #
-# Copyright 2014, Henry Huang
+# Copyright 2014-2015, Henry Huang <henry.s.huang@gmail.com>.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 import base64
 import hmac
