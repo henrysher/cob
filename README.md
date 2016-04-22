@@ -1,6 +1,6 @@
 # Cob
 
-Cob, yet another yum S3 plugin, provides the way to accessing yum repository hosted on AWS S3. 
+Cob, yet another yum S3 plugin, provides a way to accessing yum repositories hosted on AWS S3. 
 
 What's the difference between Cob and original [yum s3 plugin](https://github.com/henrysher/yum-s3-iam)?
 
