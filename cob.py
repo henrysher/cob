@@ -266,7 +266,7 @@ def _check_s3_urls(urls):
 
 
 def get_region_from_s3url(url):
-    pattern = "s3-(.*)\.amazonaws\.com"
+    pattern = "s3[-.](.*)\.amazonaws\.com"
     groups = re.compile(pattern).findall(url)
     if groups != [] and len(groups) == 1:
         return groups[0]
