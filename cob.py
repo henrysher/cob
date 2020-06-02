@@ -72,7 +72,6 @@ class NoRegionError(Exception):
 
 
 class IncorrectCredentialsError(Exception):
-
     """
     Incorrect Credentials could be found"
     """
@@ -338,7 +337,7 @@ def get_iam_role(url=metadata_server, version="latest",
 
 def get_credentials_from_iam_role(url=metadata_server,
                                   version="latest",
-                                  params="meta-data/iam/security-credentials/",
+                                  params="meta-data/iam/security-credentials",
                                   iam_role=None):
     """
     Read IAM credentials from AWS metadata store.
@@ -358,12 +357,12 @@ def get_credentials_from_iam_role(url=metadata_server,
     secret_key = data.get('SecretAccessKey', None)
     token = data.get('Token', None)
 
-    if access_key and secret_key and token:
-        return (access_key.encode("utf-8"),
-                secret_key.encode("utf-8"),
-                token.encode("utf-8"))
-    else:
+    if not access_key or not secret_key or token is None:
         return None
+
+    return (access_key.encode("utf-8"),
+            secret_key.encode("utf-8"),
+            token.encode("utf-8"))
 
 
 def init_hook(conduit):
@@ -401,7 +400,6 @@ def init_hook(conduit):
 
 
 class S3Repository(YumRepository):
-
     """
     Repository object for Amazon S3
     """
