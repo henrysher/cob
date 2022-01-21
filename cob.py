@@ -292,6 +292,7 @@ def retry_url(url, retry_on_404=False):
             req = urllib2.Request(url)
             r = opener.open(req)
             result = r.read()
+            r.close()
             return result
         except urllib2.HTTPError as e:
             # in 2.6 you use getcode(), in 2.5 and earlier you use code
@@ -299,6 +300,7 @@ def retry_url(url, retry_on_404=False):
                 code = e.getcode()
             else:
                 code = e.code
+            e.close()
             if code == 404 and not retry_on_404:
                 return None
         except Exception as e:
