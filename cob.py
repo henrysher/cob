@@ -361,16 +361,14 @@ def get_iam_role(version="latest",
         return result
 
 
-def get_credentials_from_iam_role(iam_role,
-                                  version="latest",
-                                  params="meta-data/iam/security-credentials"):
+def get_credentials_from_path(path):
     """
-    Read IAM credentials from AWS metadata store.
+    Read IAM credentials from a given path in the AWS metadata store.
     """
-    url = urlparse.urljoin(metadata_server, "/".join([version, params, iam_role]))
+    url = urlparse.urljoin(metadata_server, path)
     result = retry_url(url)
     if result is None:
-        # print "No IAM credentials found in the machine"
+        # print "No credentials found at URL", repr(url)
         return None
     try:
         data = json.loads(result)
@@ -388,6 +386,15 @@ def get_credentials_from_iam_role(iam_role,
     return (access_key.encode("utf-8"),
             secret_key.encode("utf-8"),
             token.encode("utf-8"))
+
+
+def get_credentials_for_iam_role(iam_role,
+                                 version="latest",
+                                 params="meta-data/iam/security-credentials"):
+    """
+    Read IAM role credentials from AWS metadata store.
+    """
+    return get_credentials_from_path("/".join([version, params, iam_role]))
 
 
 def init_hook(conduit):
@@ -533,21 +540,37 @@ class S3Repository(YumRepository):
         if self.access_key and self.secret_key:
             return True
 
-        # Try to get IMDSv2 token
-        imds_token = imds_token or get_imds_token()
+        container_credentials_path = self.conduit.confString('aws',
+                                                             'container_credentials_path',
+                                                             default=None)
+        if container_credentials_path:
+            # Reload metadata server address, default to ECS metadata service
+            metadata_server = self.conduit.confString('aws',
+                                                      'metadata_server',
+                                                      default="http://169.254.170.2")
 
-        # Fetch credentials from iam role meta data
-        iam_role = get_iam_role()
-        if iam_role is None:
-            self.conduit.info(3, "[ERROR] No credentials in the plugin conf "
-                                 "for the repo '%s'" % self.repoid)
-            raise IncorrectCredentialsError
+            # Fetch credentials from given path
+            credentials = get_credentials_from_path(container_credentials_path)
+            if credentials is None:
+                self.conduit.info(3, "[ERROR] Fail to get container credentials"
+                                     "for the repo '%s'" % self.repoid)
+                raise IncorrectCredentialsError
+        else:
+            # Try to get IMDSv2 token
+            imds_token = imds_token or get_imds_token()
 
-        credentials = get_credentials_from_iam_role(iam_role)
-        if credentials is None:
-            self.conduit.info(3, "[ERROR] Fail to get IAM credentials"
-                                 "for the repo '%s'" % self.repoid)
-            raise IncorrectCredentialsError
+            # Fetch credentials from iam role meta data
+            iam_role = get_iam_role()
+            if iam_role is None:
+                self.conduit.info(3, "[ERROR] No credentials in the plugin conf "
+                                     "for the repo '%s'" % self.repoid)
+                raise IncorrectCredentialsError
+
+            credentials = get_credentials_for_iam_role(iam_role)
+            if credentials is None:
+                self.conduit.info(3, "[ERROR] Fail to get IAM credentials"
+                                     "for the repo '%s'" % self.repoid)
+                raise IncorrectCredentialsError
 
         self.access_key, self.secret_key, self.token = credentials
         return True
