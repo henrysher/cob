@@ -274,7 +274,7 @@ def get_region_from_s3url(url):
         return "us-east-1"
 
 
-def retry_url(url, retry_on_404=False, num_retries=retries, timeout=timeout):
+def retry_url(url, retry_on_404=False):
     """
     Retry a url.  This is specifically used for accessing the metadata
     service on an instance.  Since this address should never be proxied
@@ -285,7 +285,7 @@ def retry_url(url, retry_on_404=False, num_retries=retries, timeout=timeout):
     original = socket.getdefaulttimeout()
     socket.setdefaulttimeout(timeout)
 
-    for i in range(0, num_retries):
+    for i in range(0, retries):
         try:
             proxy_handler = urllib2.ProxyHandler({})
             opener = urllib2.build_opener(proxy_handler)
@@ -305,28 +305,28 @@ def retry_url(url, retry_on_404=False, num_retries=retries, timeout=timeout):
             pass
         print '[ERROR] Caught exception reading instance data'
         # If not on the last iteration of the loop then sleep.
-        if i + 1 != num_retries:
+        if i + 1 != retries:
             time.sleep(2 ** i)
     print '[ERROR] Unable to read instance data, giving up'
     return None
 
 
-def get_region(url=metadata_server, version="latest",
+def get_region(version="latest",
                params="meta-data/placement/availability-zone/"):
     """
     Fetch the region from AWS metadata store.
     """
-    url = urlparse.urljoin(url, "/".join([version, params]))
+    url = urlparse.urljoin(metadata_server, "/".join([version, params]))
     result = retry_url(url)
     return result[:-1].strip()
 
 
-def get_iam_role(url=metadata_server, version="latest",
+def get_iam_role(version="latest",
                  params="meta-data/iam/security-credentials/"):
     """
     Read IAM role from AWS metadata store.
     """
-    url = urlparse.urljoin(url, "/".join([version, params]))
+    url = urlparse.urljoin(metadata_server, "/".join([version, params]))
     result = retry_url(url)
     if result is None:
         # print "No IAM role found in the machine"
@@ -335,14 +335,13 @@ def get_iam_role(url=metadata_server, version="latest",
         return result
 
 
-def get_credentials_from_iam_role(url=metadata_server,
+def get_credentials_from_iam_role(iam_role,
                                   version="latest",
-                                  params="meta-data/iam/security-credentials",
-                                  iam_role=None):
+                                  params="meta-data/iam/security-credentials"):
     """
     Read IAM credentials from AWS metadata store.
     """
-    url = urlparse.urljoin(url, "/".join([version, params, iam_role]))
+    url = urlparse.urljoin(metadata_server, "/".join([version, params, iam_role]))
     result = retry_url(url)
     if result is None:
         # print "No IAM credentials found in the machine"
@@ -512,7 +511,7 @@ class S3Repository(YumRepository):
                                  "for the repo '%s'" % self.repoid)
             raise IncorrectCredentialsError
 
-        credentials = get_credentials_from_iam_role(iam_role=iam_role)
+        credentials = get_credentials_from_iam_role(iam_role)
         if credentials is None:
             self.conduit.info(3, "[ERROR] Fail to get IAM credentials"
                                  "for the repo '%s'" % self.repoid)
