@@ -43,6 +43,7 @@ plugin_type = yum.plugins.TYPE_CORE
 timeout = 60
 retries = 5
 metadata_server = "http://169.254.169.254"
+imds_token = None
 
 EMPTY_SHA256_HASH = (
     'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')
@@ -274,7 +275,7 @@ def get_region_from_s3url(url):
         return "us-east-1"
 
 
-def retry_url(url, retry_on_404=False):
+def retry_url(url, retry_on_404=False, method=None, add_headers=[]):
     """
     Retry a url.  This is specifically used for accessing the metadata
     service on an instance.  Since this address should never be proxied
@@ -285,11 +286,19 @@ def retry_url(url, retry_on_404=False):
     original = socket.getdefaulttimeout()
     socket.setdefaulttimeout(timeout)
 
+    add_headers = list(add_headers)
+    if imds_token:
+        add_headers.append(('X-aws-ec2-metadata-token', imds_token))
+
     for i in range(0, retries):
         try:
             proxy_handler = urllib2.ProxyHandler({})
             opener = urllib2.build_opener(proxy_handler)
+            if add_headers:
+                opener.addheaders = add_headers
             req = urllib2.Request(url)
+            if method:
+                req.get_method = lambda: method
             r = opener.open(req)
             result = r.read()
             r.close()
@@ -311,6 +320,21 @@ def retry_url(url, retry_on_404=False):
             time.sleep(2 ** i)
     print '[ERROR] Unable to read instance data, giving up'
     return None
+
+
+def get_imds_token(version="latest",
+                   params="api/token",
+                   ttl=21600):
+    """
+    Get an IMDSv2 token.
+    """
+    url = urlparse.urljoin(metadata_server, "/".join([version, params]))
+    result = retry_url(url, method="PUT", add_headers=[('X-aws-ec2-metadata-token-ttl-seconds', str(ttl))])
+    if result is None:
+        #print "Could not get IMDSv2 token; is IMDSv2 enabled?"
+        return None
+    else:
+        return result
 
 
 def get_region(version="latest",
@@ -460,7 +484,7 @@ class S3Repository(YumRepository):
     def set_region(self):
 
         # Fetch params from local config file
-        global timeout, retries, metadata_server
+        global timeout, retries, metadata_server, imds_token
         timeout = self.conduit.confInt('aws', 'timeout', default=timeout)
         retries = self.conduit.confInt('aws', 'retries', default=retries)
         metadata_server = self.conduit.confString('aws',
@@ -475,6 +499,9 @@ class S3Repository(YumRepository):
         if self.region:
             return True
 
+        # Try to get IMDSv2 token
+        imds_token = imds_token or get_imds_token()
+
         # Fetch region from meta data
         region = get_region()
         if region is None:
@@ -488,7 +515,7 @@ class S3Repository(YumRepository):
     def set_credentials(self):
 
         # Fetch params from local config file
-        global timeout, retries, metadata_server
+        global timeout, retries, metadata_server, imds_token
         timeout = self.conduit.confInt('aws', 'timeout', default=timeout)
         retries = self.conduit.confInt('aws', 'retries', default=retries)
         metadata_server = self.conduit.confString('aws',
@@ -505,6 +532,9 @@ class S3Repository(YumRepository):
         self.token = self.conduit.confString('aws', 'token', default=None)
         if self.access_key and self.secret_key:
             return True
+
+        # Try to get IMDSv2 token
+        imds_token = imds_token or get_imds_token()
 
         # Fetch credentials from iam role meta data
         iam_role = get_iam_role()
