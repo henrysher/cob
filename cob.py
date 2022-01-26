@@ -35,7 +35,8 @@ from yum.yumRepo import YumRepository
 
 __all__ = ['requires_api_version',
            'plugin_type',
-           'init_hook']
+           'init_hook',
+           'prereposetup_hook']
 
 requires_api_version = '2.5'
 plugin_type = yum.plugins.TYPE_CORE
@@ -399,6 +400,15 @@ def get_credentials_for_iam_role(iam_role,
 
 def init_hook(conduit):
     """
+    Add argument for relative path in container credentials metadata service
+    """
+    parser = conduit.getOptParser()
+    parser.add_option("--aws-container-credentials-relative-uri",
+                      dest='aws_container_credentials_relative_uri')
+
+
+def prereposetup_hook(conduit):
+    """
     Setup the S3 repositories
     """
     corrupt_repos = []
@@ -540,17 +550,15 @@ class S3Repository(YumRepository):
         if self.access_key and self.secret_key:
             return True
 
-        container_credentials_path = self.conduit.confString('aws',
-                                                             'container_credentials_path',
-                                                             default=None)
-        if container_credentials_path:
+        opts, cmd = self.conduit.getCmdLine()
+        if opts.aws_container_credentials_relative_uri:
             # Reload metadata server address, default to ECS metadata service
             metadata_server = self.conduit.confString('aws',
                                                       'metadata_server',
                                                       default="http://169.254.170.2")
 
             # Fetch credentials from given path
-            credentials = get_credentials_from_path(container_credentials_path)
+            credentials = get_credentials_from_path(opts.aws_container_credentials_relative_uri)
             if credentials is None:
                 self.conduit.info(3, "[ERROR] Fail to get container credentials"
                                      "for the repo '%s'" % self.repoid)
