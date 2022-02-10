@@ -403,8 +403,9 @@ def init_hook(conduit):
     Add argument for relative path in container credentials metadata service
     """
     parser = conduit.getOptParser()
-    parser.add_option("--aws-container-credentials-relative-uri",
-                      dest='aws_container_credentials_relative_uri')
+    if parser:
+        parser.add_option("--aws-container-credentials-relative-uri",
+                          dest='aws_container_credentials_relative_uri')
 
 
 def prereposetup_hook(conduit):
@@ -551,7 +552,7 @@ class S3Repository(YumRepository):
             return True
 
         opts, cmd = self.conduit.getCmdLine()
-        if opts.aws_container_credentials_relative_uri:
+        if opts and opts.aws_container_credentials_relative_uri:
             # Reload metadata server address, default to ECS metadata service
             metadata_server = self.conduit.confString('aws',
                                                       'metadata_server',
