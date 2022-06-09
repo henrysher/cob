@@ -35,7 +35,8 @@ from yum.yumRepo import YumRepository
 
 __all__ = ['requires_api_version',
            'plugin_type',
-           'init_hook']
+           'init_hook',
+           'prereposetup_hook']
 
 requires_api_version = '2.5'
 plugin_type = yum.plugins.TYPE_CORE
@@ -43,6 +44,7 @@ plugin_type = yum.plugins.TYPE_CORE
 timeout = 60
 retries = 5
 metadata_server = "http://169.254.169.254"
+imds_token = None
 
 EMPTY_SHA256_HASH = (
     'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')
@@ -160,7 +162,7 @@ class S3SigV4Auth(BaseSigner):
     def canonical_request(self, request):
         cr = [request.method.upper()]
         path = self._normalize_url_path(urlsplit(request.url).path)
-        cr.append(path)
+        cr.append(path + '\n')
         headers_to_sign = self.headers_to_sign(request)
         cr.append(self.canonical_headers(headers_to_sign) + '\n')
         cr.append(self.signed_headers(headers_to_sign))
@@ -274,7 +276,7 @@ def get_region_from_s3url(url):
         return "us-east-1"
 
 
-def retry_url(url, retry_on_404=False, num_retries=retries, timeout=timeout):
+def retry_url(url, retry_on_404=False, method=None, add_headers=[]):
     """
     Retry a url.  This is specifically used for accessing the metadata
     service on an instance.  Since this address should never be proxied
@@ -285,13 +287,22 @@ def retry_url(url, retry_on_404=False, num_retries=retries, timeout=timeout):
     original = socket.getdefaulttimeout()
     socket.setdefaulttimeout(timeout)
 
-    for i in range(0, num_retries):
+    add_headers = list(add_headers)
+    if imds_token:
+        add_headers.append(('X-aws-ec2-metadata-token', imds_token))
+
+    for i in range(0, retries):
         try:
             proxy_handler = urllib2.ProxyHandler({})
             opener = urllib2.build_opener(proxy_handler)
+            if add_headers:
+                opener.addheaders = add_headers
             req = urllib2.Request(url)
+            if method:
+                req.get_method = lambda: method
             r = opener.open(req)
             result = r.read()
+            r.close()
             return result
         except urllib2.HTTPError as e:
             # in 2.6 you use getcode(), in 2.5 and earlier you use code
@@ -299,34 +310,50 @@ def retry_url(url, retry_on_404=False, num_retries=retries, timeout=timeout):
                 code = e.getcode()
             else:
                 code = e.code
+            e.close()
             if code == 404 and not retry_on_404:
                 return None
         except Exception as e:
             pass
         print '[ERROR] Caught exception reading instance data'
         # If not on the last iteration of the loop then sleep.
-        if i + 1 != num_retries:
+        if i + 1 != retries:
             time.sleep(2 ** i)
     print '[ERROR] Unable to read instance data, giving up'
     return None
 
 
-def get_region(url=metadata_server, version="latest",
+def get_imds_token(version="latest",
+                   params="api/token",
+                   ttl=21600):
+    """
+    Get an IMDSv2 token.
+    """
+    url = urlparse.urljoin(metadata_server, "/".join([version, params]))
+    result = retry_url(url, method="PUT", add_headers=[('X-aws-ec2-metadata-token-ttl-seconds', str(ttl))])
+    if result is None:
+        #print "Could not get IMDSv2 token; is IMDSv2 enabled?"
+        return None
+    else:
+        return result
+
+
+def get_region(version="latest",
                params="meta-data/placement/availability-zone/"):
     """
     Fetch the region from AWS metadata store.
     """
-    url = urlparse.urljoin(url, "/".join([version, params]))
+    url = urlparse.urljoin(metadata_server, "/".join([version, params]))
     result = retry_url(url)
     return result[:-1].strip()
 
 
-def get_iam_role(url=metadata_server, version="latest",
+def get_iam_role(version="latest",
                  params="meta-data/iam/security-credentials/"):
     """
     Read IAM role from AWS metadata store.
     """
-    url = urlparse.urljoin(url, "/".join([version, params]))
+    url = urlparse.urljoin(metadata_server, "/".join([version, params]))
     result = retry_url(url)
     if result is None:
         # print "No IAM role found in the machine"
@@ -335,17 +362,14 @@ def get_iam_role(url=metadata_server, version="latest",
         return result
 
 
-def get_credentials_from_iam_role(url=metadata_server,
-                                  version="latest",
-                                  params="meta-data/iam/security-credentials",
-                                  iam_role=None):
+def get_credentials_from_path(path):
     """
-    Read IAM credentials from AWS metadata store.
+    Read IAM credentials from a given path in the AWS metadata store.
     """
-    url = urlparse.urljoin(url, "/".join([version, params, iam_role]))
+    url = urlparse.urljoin(metadata_server, path)
     result = retry_url(url)
     if result is None:
-        # print "No IAM credentials found in the machine"
+        # print "No credentials found at URL", repr(url)
         return None
     try:
         data = json.loads(result)
@@ -365,7 +389,26 @@ def get_credentials_from_iam_role(url=metadata_server,
             token.encode("utf-8"))
 
 
+def get_credentials_for_iam_role(iam_role,
+                                 version="latest",
+                                 params="meta-data/iam/security-credentials"):
+    """
+    Read IAM role credentials from AWS metadata store.
+    """
+    return get_credentials_from_path("/".join([version, params, iam_role]))
+
+
 def init_hook(conduit):
+    """
+    Add argument for relative path in container credentials metadata service
+    """
+    parser = conduit.getOptParser()
+    if parser:
+        parser.add_option("--aws-container-credentials-relative-uri",
+                          dest='aws_container_credentials_relative_uri')
+
+
+def prereposetup_hook(conduit):
     """
     Setup the S3 repositories
     """
@@ -459,7 +502,7 @@ class S3Repository(YumRepository):
     def set_region(self):
 
         # Fetch params from local config file
-        global timeout, retries, metadata_server
+        global timeout, retries, metadata_server, imds_token
         timeout = self.conduit.confInt('aws', 'timeout', default=timeout)
         retries = self.conduit.confInt('aws', 'retries', default=retries)
         metadata_server = self.conduit.confString('aws',
@@ -474,6 +517,9 @@ class S3Repository(YumRepository):
         if self.region:
             return True
 
+        # Try to get IMDSv2 token
+        imds_token = imds_token or get_imds_token()
+
         # Fetch region from meta data
         region = get_region()
         if region is None:
@@ -487,7 +533,7 @@ class S3Repository(YumRepository):
     def set_credentials(self):
 
         # Fetch params from local config file
-        global timeout, retries, metadata_server
+        global timeout, retries, metadata_server, imds_token
         timeout = self.conduit.confInt('aws', 'timeout', default=timeout)
         retries = self.conduit.confInt('aws', 'retries', default=retries)
         metadata_server = self.conduit.confString('aws',
@@ -505,18 +551,35 @@ class S3Repository(YumRepository):
         if self.access_key and self.secret_key:
             return True
 
-        # Fetch credentials from iam role meta data
-        iam_role = get_iam_role()
-        if iam_role is None:
-            self.conduit.info(3, "[ERROR] No credentials in the plugin conf "
-                                 "for the repo '%s'" % self.repoid)
-            raise IncorrectCredentialsError
+        opts, cmd = self.conduit.getCmdLine()
+        if opts and opts.aws_container_credentials_relative_uri:
+            # Reload metadata server address, default to ECS metadata service
+            metadata_server = self.conduit.confString('aws',
+                                                      'metadata_server',
+                                                      default="http://169.254.170.2")
 
-        credentials = get_credentials_from_iam_role(iam_role=iam_role)
-        if credentials is None:
-            self.conduit.info(3, "[ERROR] Fail to get IAM credentials"
-                                 "for the repo '%s'" % self.repoid)
-            raise IncorrectCredentialsError
+            # Fetch credentials from given path
+            credentials = get_credentials_from_path(opts.aws_container_credentials_relative_uri)
+            if credentials is None:
+                self.conduit.info(3, "[ERROR] Fail to get container credentials"
+                                     "for the repo '%s'" % self.repoid)
+                raise IncorrectCredentialsError
+        else:
+            # Try to get IMDSv2 token
+            imds_token = imds_token or get_imds_token()
+
+            # Fetch credentials from iam role meta data
+            iam_role = get_iam_role()
+            if iam_role is None:
+                self.conduit.info(3, "[ERROR] No credentials in the plugin conf "
+                                     "for the repo '%s'" % self.repoid)
+                raise IncorrectCredentialsError
+
+            credentials = get_credentials_for_iam_role(iam_role)
+            if credentials is None:
+                self.conduit.info(3, "[ERROR] Fail to get IAM credentials"
+                                     "for the repo '%s'" % self.repoid)
+                raise IncorrectCredentialsError
 
         self.access_key, self.secret_key, self.token = credentials
         return True
@@ -524,8 +587,7 @@ class S3Repository(YumRepository):
     def fetch_headers(self, url, path):
         headers = {}
 
-        # "\n" in the url, required by AWS S3 Auth v4
-        url = urlparse.urljoin(url, urllib2.quote(path)) + "\n"
+        url = urlparse.urljoin(url, urllib2.quote(path))
         credentials = Credentials(self.access_key, self.secret_key, self.token)
         request = HTTPRequest("GET", url)
         signer = S3SigV4Auth(credentials, "s3", self.region, self.conduit)
