@@ -160,7 +160,8 @@ class S3SigV4Auth(BaseSigner):
     def canonical_request(self, request):
         cr = [request.method.upper()]
         path = self._normalize_url_path(urlsplit(request.url).path)
-        cr.append(path)
+        # "\n" in the url, required by AWS S3 Auth v4
+        cr.append(path.rstrip() + "\n")
         headers_to_sign = self.headers_to_sign(request)
         cr.append(self.canonical_headers(headers_to_sign) + '\n')
         cr.append(self.signed_headers(headers_to_sign))
@@ -524,8 +525,7 @@ class S3Repository(YumRepository):
     def fetch_headers(self, url, path):
         headers = {}
 
-        # "\n" in the url, required by AWS S3 Auth v4
-        url = urlparse.urljoin(url, urllib2.quote(path)) + "\n"
+        url = urlparse.urljoin(url, urllib2.quote(path))
         credentials = Credentials(self.access_key, self.secret_key, self.token)
         request = HTTPRequest("GET", url)
         signer = S3SigV4Auth(credentials, "s3", self.region, self.conduit)
