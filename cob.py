@@ -159,7 +159,10 @@ class S3SigV4Auth(BaseSigner):
 
     def canonical_request(self, request):
         cr = [request.method.upper()]
-        path = self._normalize_url_path(urlsplit(request.url).path)
+        _path = urlsplit(request.url).path
+        if not _path.endswith('\n'):
+            _path += "\n"
+        path = self._normalize_url_path(_path)
         cr.append(path)
         headers_to_sign = self.headers_to_sign(request)
         cr.append(self.canonical_headers(headers_to_sign) + '\n')
